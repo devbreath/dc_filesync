@@ -1,5 +1,3 @@
-import { useMemo } from "react";
-
 import { FileManager } from "~/lib/filemanager";
 import FileItem from "~/components/FileItem";
 
@@ -9,17 +7,13 @@ interface Props {
 }
 
 export default function FileList({ manager, files }: Props) {
-  const items = files.map((f) =>
-    useMemo(
-      () => <FileItem key={f.id} file={f} manager={manager} />,
-      [f.id, f.lastModified, f.pending.length],
-    ),
-  );
   //console.log("FILE LIST RERENDERED");
   return (
     <div style={{ paddingBottom: "8em" }}>
       {files.length ? (
-        items
+        files.map((file) => (
+          <FileItem key={file.id} file={file} manager={manager} />
+        ))
       ) : (
         <p style={{ textAlign: "center", fontSize: "1.5em", color: "#737373" }}>
           No files imported.

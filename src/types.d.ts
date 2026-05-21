@@ -9,6 +9,7 @@ declare type Payload =
 declare interface PeerRequest {
   time: number;
   file: string;
+  lastModified: number;
   chunk: number;
   peer: string;
 }
@@ -27,6 +28,7 @@ declare interface FileMeta {
   lastModified: number;
   size: number;
   type: string;
+  sentBytes: number;
 }
 
 declare interface Chunk {
@@ -37,4 +39,40 @@ declare interface Chunk {
 
 declare interface State {
   files: FileMeta[];
+}
+
+declare interface FileAnnouncement {
+  id: string;
+  name: string;
+  lastModified: number;
+  size: number;
+  type: string;
+}
+
+declare type FallbackUpdate =
+  | {
+      v: 1;
+      type: "file-meta";
+      sender: string;
+      file: FileAnnouncement;
+    }
+  | FallbackChunkRequest
+  | {
+      v: 1;
+      type: "chunk";
+      sender: string;
+      file: string;
+      lastModified: number;
+      chunk: number;
+      data: string;
+      meta?: FileAnnouncement;
+    };
+
+declare interface FallbackChunkRequest {
+  v: 1;
+  type: "chunk-request";
+  sender: string;
+  file: string;
+  lastModified: number;
+  chunks: number[];
 }

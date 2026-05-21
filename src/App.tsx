@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 
 import { FileManager } from "~/lib/filemanager";
 import { Peer } from "@webxdc/realtime";
@@ -15,12 +15,15 @@ export default function App() {
     null as FileMeta[] | null,
   );
   const [manager] = useState(() => {
-    const manager = new FileManager(setPeers, setFiles);
-    manager.start();
-    return manager;
+    return new FileManager(setPeers, setFiles);
   });
 
-  if (!files) return;
+  useEffect(() => {
+    void manager.start();
+    return () => manager.stop();
+  }, [manager]);
+
+  if (!files) return null;
 
   const FilePickerM = useMemo(
     () => <FilePicker manager={manager} />,
