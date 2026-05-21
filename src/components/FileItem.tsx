@@ -95,6 +95,9 @@ export default function FileItem({ manager, file }: Props) {
             {percentage === 100 ? "" : percentage + "% - "}{" "}
             {formatDateShort(file.lastModified)}, {formatBytes(file.size)}
           </small>
+          <small style={{ color: "#737373" }}>
+            Sent to peers: {formatBytes(file.sentBytes || 0)}
+          </small>
         </div>
         <div style={iconsStyle}>
           {!file.pending.length && shareBtn}

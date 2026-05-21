@@ -109,6 +109,7 @@ export class FileManager {
       lastModified: Date.now(),
       size: -1,
       type: "",
+      sentBytes: 0,
     };
     await db.transaction("rw", db.files, db.chunks, async () => {
       await db.chunks.where("file").equals(id).delete();
@@ -140,6 +141,7 @@ export class FileManager {
         lastModified: file.lastModified || Date.now(),
         size: file.size,
         type: file.type,
+        sentBytes: 0,
       };
       await db.files.add(meta);
       for (let i = 0; i < getChunkCount(file.size); i++) {
@@ -173,7 +175,7 @@ export class FileManager {
             .where({ file: req.file, id: req.chunk })
             .first();
           if (chunk) {
-            this.sendResponse(file.lastModified, chunk);
+            await this.sendResponse(file.lastModified, chunk);
           }
         }
       }
@@ -191,13 +193,15 @@ export class FileManager {
   }
 
   private async sendResponse(lastModified: number, chunk: Chunk) {
+    const data = await blobToUint8Array(chunk.blob);
     const response = {
       file: chunk.file,
       lastModified,
       chunk: chunk.id,
-      data: await blobToUint8Array(chunk.blob),
+      data,
     };
     this.realtime.sendPayload({ response });
+    await this.addSentBytes(chunk.file, data.byteLength);
   }
 
   private async sendRequest(request: PeerRequest) {
@@ -326,6 +330,7 @@ export class FileManager {
       await db.files.add({
         ...meta,
         pending: createPendingChunks(meta.size),
+        sentBytes: 0,
       });
       return true;
     }
@@ -336,6 +341,7 @@ export class FileManager {
       await db.files.put({
         ...meta,
         pending,
+        sentBytes: 0,
       });
       await db.chunks.where("file").equals(meta.id).delete();
     });
@@ -372,6 +378,20 @@ export class FileManager {
     });
     this.setFiles(await db.files.toArray());
     return true;
+  }
+
+  private async addSentBytes(fileId: string, bytes: number) {
+    if (bytes <= 0) return;
+
+    await db.transaction("rw", db.files, async () => {
+      const file = await db.files.get(fileId);
+      if (!file || file.size < 0) return;
+      await db.files.put({
+        ...file,
+        sentBytes: (file.sentBytes || 0) + bytes,
+      });
+    });
+    this.setFiles(await db.files.toArray());
   }
 
   private scheduleFallbackRequests(delay: number) {
@@ -505,6 +525,12 @@ export class FileManager {
       await Promise.resolve(
         window.webxdc.sendUpdate({ payload: item.update }, ""),
       );
+      if (item.update.type === "chunk") {
+        await this.addSentBytes(
+          item.update.file,
+          base64ToByteLength(item.update.data),
+        );
+      }
     } catch (error) {
       console.error("failed to send fallback update", error);
     }
@@ -587,6 +613,11 @@ function base64ToUint8Array(base64: string): Uint8Array {
     bytes[i] = binary.charCodeAt(i);
   }
   return bytes;
+}
+
+function base64ToByteLength(base64: string): number {
+  const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
+  return Math.floor((base64.length * 3) / 4) - padding;
 }
 
 function getFallbackSendInterval(): number {
