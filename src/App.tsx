@@ -6,11 +6,13 @@ import { Peer } from "@webxdc/realtime";
 import FileList from "~/components/FileList";
 import Footer from "~/components/Footer";
 import FilePicker from "~/components/FilePicker";
+import FilePreview from "~/components/FilePreview";
 
 import "./App.css";
 
 export default function App() {
   const [peers, setPeers] = useState<Peer<State>[]>([]);
+  const [previewFile, setPreviewFile] = useState<FileMeta | null>(null);
   let [files, setFiles] = useState<FileMeta[] | null>(
     null as FileMeta[] | null,
   );
@@ -30,7 +32,9 @@ export default function App() {
     [manager],
   );
   const FileListM = useMemo(
-    () => <FileList files={files} manager={manager} />,
+    () => (
+      <FileList files={files} manager={manager} onPreview={setPreviewFile} />
+    ),
     [files, manager],
   );
   const size = files.reduce((acc, file) => acc + file.size, 0);
@@ -50,6 +54,13 @@ export default function App() {
       {FilePickerM}
       {FileListM}
       {FooterM}
+      {previewFile && (
+        <FilePreview
+          file={previewFile}
+          manager={manager}
+          onClose={() => setPreviewFile(null)}
+        />
+      )}
     </div>
   );
 }

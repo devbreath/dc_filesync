@@ -10,9 +10,10 @@ import { formatDateShort, formatBytes } from "~/lib/util";
 interface Props {
   file: FileMeta;
   manager: FileManager;
+  onPreview: (file: FileMeta) => void;
 }
 
-export default function FileItem({ manager, file }: Props) {
+export default function FileItem({ manager, file, onPreview }: Props) {
   const percentage = manager.getDownloadProgress(file);
   const containerStyle = {
     display: "flex",
@@ -42,6 +43,13 @@ export default function FileItem({ manager, file }: Props) {
     overflow: "hidden",
   };
   const fileNameStyle = {
+    background: "transparent",
+    border: "none",
+    cursor: percentage === 100 ? "pointer" : "default",
+    font: "inherit",
+    fontWeight: "bold",
+    padding: 0,
+    textAlign: "left" as "left",
     overflow: "hidden",
     textOverflow: "ellipsis",
     textWrap: "nowrap" as "nowrap",
@@ -90,7 +98,14 @@ export default function FileItem({ manager, file }: Props) {
       <MageFileFill style={fileIconStyle} />
       <div style={rightStyle}>
         <div style={metaStyle}>
-          <strong style={fileNameStyle}>{file.name}</strong>
+          <button
+            disabled={percentage !== 100}
+            onClick={() => onPreview(file)}
+            style={fileNameStyle}
+            title={percentage === 100 ? file.name : undefined}
+          >
+            {file.name}
+          </button>
           <small style={{ color: "#737373" }}>
             {percentage === 100 ? "" : percentage + "% - "}{" "}
             {formatDateShort(file.lastModified)}, {formatBytes(file.size)}

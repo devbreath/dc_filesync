@@ -120,14 +120,25 @@ export class FileManager {
   }
 
   async exportFile(meta: FileMeta) {
-    const chunks = await db.chunks.where("file").equals(meta.id).sortBy("id");
-    const blobs = chunks.map((chunk) => chunk.blob);
+    const blob = await this.getFileBlob(meta);
     window.webxdc.sendToChat({
       file: {
         name: meta.name,
-        blob: new Blob(blobs),
+        blob,
       },
     });
+  }
+
+  async getFileBlob(meta: FileMeta): Promise<Blob> {
+    if (meta.pending.length > 0) {
+      throw new Error("File is not fully downloaded yet.");
+    }
+
+    const chunks = await db.chunks.where("file").equals(meta.id).sortBy("id");
+    return new Blob(
+      chunks.map((chunk) => chunk.blob),
+      { type: meta.type },
+    );
   }
 
   async importFile(file: File) {
