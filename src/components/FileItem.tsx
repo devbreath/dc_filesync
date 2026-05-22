@@ -15,6 +15,9 @@ interface Props {
 
 export default function FileItem({ manager, file, onPreview }: Props) {
   const percentage = manager.getDownloadProgress(file);
+  const sentBytes = Math.min(file.sentBytes || 0, file.size);
+  const retransmitBytes = file.retransmitBytes || 0;
+  const retransmitCount = file.retransmitCount || 0;
   const containerStyle = {
     display: "flex",
     flexDirection: "row" as "row",
@@ -111,7 +114,10 @@ export default function FileItem({ manager, file, onPreview }: Props) {
             {formatDateShort(file.lastModified)}, {formatBytes(file.size)}
           </small>
           <small style={{ color: "#737373" }}>
-            Sent to peers: {formatBytes(file.sentBytes || 0)}
+            Sent to peers: {formatBytes(sentBytes)}
+          </small>
+          <small style={{ color: "#737373" }}>
+            Repeated sends: {retransmitCount} ({formatBytes(retransmitBytes)})
           </small>
         </div>
         <div style={iconsStyle}>

@@ -29,6 +29,9 @@ declare interface FileMeta {
   size: number;
   type: string;
   sentBytes: number;
+  sentChunks: number[];
+  retransmitCount: number;
+  retransmitBytes: number;
 }
 
 declare interface Chunk {

@@ -110,6 +110,9 @@ export class FileManager {
       size: -1,
       type: "",
       sentBytes: 0,
+      sentChunks: [],
+      retransmitCount: 0,
+      retransmitBytes: 0,
     };
     await db.transaction("rw", db.files, db.chunks, async () => {
       await db.chunks.where("file").equals(id).delete();
@@ -153,6 +156,9 @@ export class FileManager {
         size: file.size,
         type: file.type,
         sentBytes: 0,
+        sentChunks: [],
+        retransmitCount: 0,
+        retransmitBytes: 0,
       };
       await db.files.add(meta);
       for (let i = 0; i < getChunkCount(file.size); i++) {
@@ -212,7 +218,12 @@ export class FileManager {
       data,
     };
     this.realtime.sendPayload({ response });
-    await this.addSentBytes(chunk.file, data.byteLength);
+    await this.recordSentChunk(
+      chunk.file,
+      lastModified,
+      chunk.id,
+      data.byteLength,
+    );
   }
 
   private async sendRequest(request: PeerRequest) {
@@ -342,6 +353,9 @@ export class FileManager {
         ...meta,
         pending: createPendingChunks(meta.size),
         sentBytes: 0,
+        sentChunks: [],
+        retransmitCount: 0,
+        retransmitBytes: 0,
       });
       return true;
     }
@@ -353,6 +367,9 @@ export class FileManager {
         ...meta,
         pending,
         sentBytes: 0,
+        sentChunks: [],
+        retransmitCount: 0,
+        retransmitBytes: 0,
       });
       await db.chunks.where("file").equals(meta.id).delete();
     });
@@ -391,15 +408,29 @@ export class FileManager {
     return true;
   }
 
-  private async addSentBytes(fileId: string, bytes: number) {
+  private async recordSentChunk(
+    fileId: string,
+    lastModified: number,
+    chunkId: number,
+    bytes: number,
+  ) {
     if (bytes <= 0) return;
 
     await db.transaction("rw", db.files, async () => {
       const file = await db.files.get(fileId);
-      if (!file || file.size < 0) return;
+      if (!file || file.size < 0 || file.lastModified !== lastModified) return;
+      if ((file.sentChunks || []).indexOf(chunkId) >= 0) {
+        await db.files.put({
+          ...file,
+          retransmitCount: (file.retransmitCount || 0) + 1,
+          retransmitBytes: (file.retransmitBytes || 0) + bytes,
+        });
+        return;
+      }
       await db.files.put({
         ...file,
-        sentBytes: (file.sentBytes || 0) + bytes,
+        sentBytes: Math.min(file.size, (file.sentBytes || 0) + bytes),
+        sentChunks: [...(file.sentChunks || []), chunkId],
       });
     });
     this.setFiles(await db.files.toArray());
@@ -537,8 +568,10 @@ export class FileManager {
         window.webxdc.sendUpdate({ payload: item.update }, ""),
       );
       if (item.update.type === "chunk") {
-        await this.addSentBytes(
+        await this.recordSentChunk(
           item.update.file,
+          item.update.lastModified,
+          item.update.chunk,
           base64ToByteLength(item.update.data),
         );
       }
